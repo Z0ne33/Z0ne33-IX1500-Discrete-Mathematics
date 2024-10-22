@@ -95,15 +95,14 @@ else:
     print(f"Start node '{start_node}' not found in the graph.")
 
 
-pos = nx.spring_layout(G)  
+pos = nx.spring_layout(G, k=0.6, scale=5)  # Increasing 'k' spreads out the nodes
 
-
+# Draw the graph with updated layout
 nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=2000, font_size=10, font_weight='bold')
 
-
+# Draw edge labels (weights)
 edge_labels = nx.get_edge_attributes(G, 'weight')
 nx.draw_networkx_edge_labels(G, pos, edge_labels={k: f"{v:.3f}" for k, v in edge_labels.items()})
-
 
 plt.title("Graph Representation with Weights")
 plt.show()
