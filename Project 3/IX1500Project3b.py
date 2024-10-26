@@ -2,7 +2,11 @@ import heapq
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+import folium
+from geopy.geocoders import Nominatim
 
+
+geolocator = Nominatim(user_agent="sweden_city_locator")
 
 cities = [
     "Abisko", "Boden", "Falun", "Goteborg", "Hoganas", "Hudiksvall", "Jonkoping",
@@ -11,6 +15,14 @@ cities = [
     "Umea", "Varberg", "Visby"
 ]
 
+# Fetch coordinates
+city_coordinates = {}
+for city in cities:
+    location = geolocator.geocode(city + ", Sweden")
+    if location:
+        city_coordinates[city] = (location.latitude, location.longitude)
+    else:
+        print(f"Could not find coordinates for {city}")
 
 links = [
     (15, 18), (13, 17), (3, 16), (6, 3), (18, 6), (12, 2), (15, 11), (19, 21), (7, 8),
@@ -22,8 +34,6 @@ links = [
 ]
 
 
-links = [(u, v) for u, v in links if u < len(cities) and v < len(cities)]
-
 
 capacity = {
     (17, 4): 25,   # Stockholm - Göteborg
@@ -33,47 +43,34 @@ capacity = {
     (3, 16): 15,   # Falun - Östersund
     (16, 21): 15   # Östersund - Umeå
 }
+
 weights = {}
-
-
 for link in links:
     if link not in capacity and (link[1], link[0]) not in capacity:
         capacity[link] = random.randint(1, 10)
 
-
 for link in links:
-    if link in capacity:
-        weights[link] = round(1 / capacity[link], 3)
-    if (link[1], link[0]) in capacity:
-         weights[link] = round(1 / capacity[(link[1], link[0])], 3)
+    if (link[0], link[1]) in capacity:
+        weights[link] = round(1 / capacity[(link[0], link[1])], 3)
+    elif (link[1], link[0]) in capacity:
+        weights[link] = round(1 / capacity[(link[1], link[0])], 3)
 
 G = nx.Graph()
-
-
 for link, weight in weights.items():
-    G.add_edge(cities[link[0] -1], cities[link[1] -1], weight=weight)
- 
-
-
+    G.add_edge(cities[link[0] - 1], cities[link[1] - 1], weight=weight)
 
 start_node = "Stockholm"
 
-
 def dijkstra(graph, start):
-    
     distances = {city: float('inf') for city in graph.nodes}
     distances[start] = 0
     visited = set()
     
     while len(visited) < len(graph.nodes):
-       
         current_node = min((city for city in graph.nodes if city not in visited), 
                            key=lambda city: distances[city])
-
-       
         visited.add(current_node)
 
-        
         for neighbor, attributes in graph[current_node].items():
             weight = attributes['weight']
             if neighbor not in visited:
@@ -83,10 +80,6 @@ def dijkstra(graph, start):
 
     return distances
 
-
-
-
-
 if start_node in G:
     shortest_paths = dijkstra(G, start_node)
     for city, distance in shortest_paths.items():
@@ -95,14 +88,23 @@ else:
     print(f"Start node '{start_node}' not found in the graph.")
 
 
-pos = nx.spring_layout(G, k=0.6, scale=5)  # Increasing 'k' spreads out the nodes
+sweden_map = folium.Map(location=[63.0, 18.0], zoom_start=5)
 
-# Draw the graph with updated layout
-nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=2000, font_size=10, font_weight='bold')
+for city, coords in city_coordinates.items():
+    folium.Marker(location=coords, popup=city).add_to(sweden_map)
 
-# Draw edge labels (weights)
-edge_labels = nx.get_edge_attributes(G, 'weight')
-nx.draw_networkx_edge_labels(G, pos, edge_labels={k: f"{v:.3f}" for k, v in edge_labels.items()})
 
-plt.title("Graph Representation with Weights")
-plt.show()
+for link in links:
+    city1 = cities[link[0] - 1]
+    city2 = cities[link[1] - 1]
+    folium.PolyLine(
+        locations=[city_coordinates[city1], city_coordinates[city2]], 
+        color='blue', 
+        weight=2.5, 
+        opacity=0.5
+    ).add_to(sweden_map)
+
+
+sweden_map.save('sweden_cities_map.html')
+
+print("Map saved as 'sweden_cities_map.html'")
